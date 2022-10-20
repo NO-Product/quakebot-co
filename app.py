@@ -1,9 +1,13 @@
+from functools import partial
 import os
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
+from threading import Thread
 
 import requests
 from flask import Flask, abort, request
+
+from twitter_monitor import monitor_tweets
 
 
 def parse_bool(string: str):
@@ -20,7 +24,6 @@ IFTTT_WEBHOOKS = [webhoook.strip() for webhoook in IFTTT_WEBHOOKS.split(",")]
 def create_app():
     app = Flask(__name__)
     threadPool = ThreadPoolExecutor(4)
-    last_eqw_singal_date = None
 
     @app.route("/notify", methods=['POST'])
     @app.route("/notify/", methods=['POST'])
@@ -48,28 +51,39 @@ def create_app():
         else:
             return "invalid signal code.", 400
 
+    last_eqw_singal_date = None
 
-    def on_eqw_signal(test=False):
+    def on_eqw_signal(test=False, twitter=False):
         nonlocal last_eqw_singal_date
         # ignore subsequent EQW signals for 15 seconds
         # to avoid sending multiple webhooks for a single signal
         now = datetime.now()
-        if last_eqw_singal_date and last_eqw_singal_date - now < timedelta(seconds=15):
+        if last_eqw_singal_date and now - last_eqw_singal_date < timedelta(seconds=15):
             return
         last_eqw_singal_date = now
-        
+
         payload = {
             "code": "EQW",
             "date": datetime.now().isoformat()
         }
         if test:
             payload['test'] = True
+        if twitter:
+            payload['twitter'] = True
 
         def send_webhook(webhook):
             with requests.post(webhook, json=payload) as response:
                 return response.status_code
 
         results = threadPool.map(send_webhook, IFTTT_WEBHOOKS)
+
+
+    twitter_monitor_thread = Thread(
+        target=monitor_tweets,
+        kwargs={'on_eqw_tweet': partial(on_eqw_signal, twitter=True)},
+        daemon=True
+    )
+    twitter_monitor_thread.start()
 
     return app
 
