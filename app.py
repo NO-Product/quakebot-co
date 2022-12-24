@@ -55,10 +55,12 @@ def create_app():
 
     def on_eqw_signal(test=False, twitter=False):
         nonlocal last_eqw_singal_date
+        print(f"Recived EQW signal! from twitter: {twitter} - is test: {test}")
         # ignore subsequent EQW signals for 15 seconds
         # to avoid sending multiple webhooks for a single signal
         now = datetime.now()
         if last_eqw_singal_date and now - last_eqw_singal_date < timedelta(seconds=15):
+            print(f"Signal ignored: within 15 seconds of previous signal.")
             return
         last_eqw_singal_date = now
 
@@ -73,7 +75,7 @@ def create_app():
 
         def send_webhook(webhook):
             with requests.post(webhook, json=payload) as response:
-                return response.status_code
+                print(f"Notification sent to '{webhook}' with status code: {response.status_code}")
 
         results = threadPool.map(send_webhook, IFTTT_WEBHOOKS)
 
