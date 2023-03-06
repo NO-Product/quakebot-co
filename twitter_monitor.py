@@ -11,6 +11,7 @@ import retry
 POLL_INTERVAL = 1
 TWITTER_MONITOR_USERS = os.environ["TWITTER_MONITOR_USERS"]
 TWITTER_API_TOKEN = os.environ["TWITTER_API_TOKEN"]
+TWITTER_TOKEN_RATE_LIMIT = int(os.environ["TWITTER_TOKEN_RATE_LIMIT"])
 USER_AGENT = "v2TweetLookupPython"
 
 logger = logging.getLogger(__name__)
@@ -18,14 +19,31 @@ logger = logging.getLogger(__name__)
 twitter_api_tokens_lock = threading.Lock()
 twitter_api_token_index = -1
 twitter_api_tokens = list(map(lambda x: x.strip(), TWITTER_API_TOKEN.split(",")))
+twitter_api_calls_since = None
+twitter_api_calls = None
 
 
 def get_api_token():
     global twitter_api_token_index
+    global twitter_api_calls_since
+    global twitter_api_calls
+
     with twitter_api_tokens_lock:
+        if twitter_api_calls_since is None or time() - twitter_api_calls_since > 3600:
+            twitter_api_calls_since = time()
+            twitter_api_calls = 0
+        if twitter_api_calls + 1 > TWITTER_TOKEN_RATE_LIMIT:
+            wait_time = max(0, 3600 - (time() - twitter_api_calls_since))
+            logger.warning(f"Warning: Hit rate limit of {TWITTER_TOKEN_RATE_LIMIT} requests/hr. waiting: {round(wait_time)} seconds")
+            sleep(wait_time)
+            twitter_api_calls_since = time()
+            twitter_api_calls = 0
+        twitter_api_calls += 1
+
         twitter_api_token_index += 1
         if twitter_api_token_index >= len(twitter_api_tokens):
             twitter_api_token_index = 0
+
         return twitter_api_tokens[twitter_api_token_index]
 
 
