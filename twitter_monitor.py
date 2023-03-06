@@ -13,7 +13,25 @@ POLL_INTERVAL = 1
 TWITTER_MONITOR_USERS = os.environ["TWITTER_MONITOR_USERS"]
 TWITTER_API_TOKEN = os.environ["TWITTER_API_TOKEN"]
 TWITTER_TOKEN_RATE_LIMIT = int(os.environ["TWITTER_TOKEN_RATE_LIMIT"])
-TWITTER_TEXT_QUERY = json.loads(os.environ['TWITTER_TEXT_QUERY'])
+TWITTER_TEXT_QUERY = json.loads(os.environ.get('TWITTER_TEXT_QUERY', r"""
+{
+    "AND": [
+        {
+            "OR": [
+                "CDMX: 🟡 MODERADO",
+                "CDMX: 🔴 FUERTE",
+                {"REGEX": "CDMX: (🟡|🔴) \\d+ seg."}
+            ]
+        },
+        {
+            "OR": [
+                "#Sismo en progreso",
+                "#SASSLA"
+            ]
+        }
+    ]
+}
+"""))
 USER_AGENT = "v2TweetLookupPython"
 
 logger = logging.getLogger(__name__)

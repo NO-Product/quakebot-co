@@ -40,6 +40,67 @@ TWITTER_TEXT_QUERY=[AND_NOT_OR_MATCH_STRING] # Criteria used to determine if any
 TWITTER_TOKEN_RATE_LIMIT=[HOURLY_REQUEST_LIMIT] # Total number of requests that should be made hourly (per token) to Twitter API. (Default value = 684)
 ```
 
+examples of `TWITTER_TEXT_QUERY`:
+```js
+{ // AND lookup
+  "AND": [
+    "match 1"
+    "match 2",
+  ]
+}
+```
+```js
+{ // OR lookup
+  "OR": [
+    "match 1"
+    "match 2",
+  ]
+}
+```
+```js
+{ // combining AND and OR (can nest as many as needed)
+  "AND": [
+    "match 1"
+    "match 2",
+    {
+      "OR": [
+        "match 2",
+        "match 4",
+      ]
+    }
+  ]
+}
+```
+```js
+{ // using REGEX
+  "AND": [
+    "match 1",
+    {"REGEX": "match (a|b) \\d+"} // must escape slashes
+  ]
+}
+```
+default query:
+```
+{
+    "AND": [
+        {
+            "OR": [
+                "CDMX: 🟡 MODERADO",
+                "CDMX: 🔴 FUERTE",
+                {"REGEX": "CDMX: (🟡|🔴) \\d+ seg."}
+            ]
+        },
+        {
+            "OR": [
+                "#Sismo en progreso",
+                "#SASSLA"
+            ]
+        }
+    ]
+}
+```
+
+
 ### Webhook payload:
 Here's an example of the payload sent with each webhook notification QuakeBot sends, when a new earthquake alert has been received. This is what would therefore be received by any webhook URL defined in the `ALERT_WEBHOOKS` environment variable.
 
