@@ -1,36 +1,97 @@
+import logging
 import os
+import re
+import threading
 from datetime import datetime, timedelta
 from time import sleep, time
-import re
 
 import requests
 import retry
 
-
 POLL_INTERVAL = 1
-POLL_USER_ID = '921836240563032066' # the user id for @SafeLiveAlerter
-TWITTER_API_TOKEN = os.environ.get("TWITTER_API_TOKEN")
+TWITTER_MONITOR_USERS = os.environ["TWITTER_MONITOR_USERS"]
+TWITTER_API_TOKEN = os.environ["TWITTER_API_TOKEN"]
+USER_AGENT = "v2TweetLookupPython"
+
+logger = logging.getLogger(__name__)
+
+twitter_api_tokens_lock = threading.Lock()
+twitter_api_token_index = -1
+twitter_api_tokens = list(map(lambda x: x.strip(), TWITTER_API_TOKEN.split(",")))
 
 
-@retry.retry()
+def get_api_token():
+    global twitter_api_token_index
+    with twitter_api_tokens_lock:
+        twitter_api_token_index += 1
+        if twitter_api_token_index >= len(twitter_api_tokens):
+            twitter_api_token_index = 0
+        return twitter_api_tokens[twitter_api_token_index]
+
+
 def monitor_tweets(on_eqw_tweet):
-    session = requests.Session()
-    endpoint = f'https://api.twitter.com/2/users/{POLL_USER_ID}/tweets'
+    twitter_users = list(map(lambda x: x.strip(), TWITTER_MONITOR_USERS.split(',')))
+    endpoint = f'https://api.twitter.com/2/users/by'
     params = {
-        'tweet.fields': 'text,created_at'
+        'usernames': ','.join(twitter_users),
     }
     headers = {
         "Authorization": f"Bearer {TWITTER_API_TOKEN}",
-        "User-Agent": "v2TweetLookupPython"
+        "User-Agent": USER_AGENT
     }
+    with requests.get(endpoint, params=params, headers=headers) as response:
+        status = response.status_code
+        result: dict = response.json()
+
+    if status == 401:
+        print(f"Error: Unauthorized. Please check your API tokens. API response: {result}")
+        return
+
+    users = result.pop('data', None)
+    errors = result.pop('errors', None)
+    if errors and users:
+        print(f"Error: Failed to fetch user id for one or more users. API response: {errors}")
+    elif not users:
+        print(f"Error: Failed to fetch users ids. API response: {errors or result}")
+        return
+
+    for user in users:
+        thread = threading.Thread(target=_monitor_tweets, args=(user['id'], on_eqw_tweet))
+        thread.daemon = True
+        thread.start()
+
+
+@retry.retry(delay=1, logger=logger)
+def _monitor_tweets(twitter_user_id, on_eqw_tweet):
+    session = requests.Session()
+    endpoint = f'https://api.twitter.com/2/users/{twitter_user_id}/tweets'
+    params = {
+        'tweet.fields': 'text,created_at'
+    }
+
+    begin = None
+    def wait_interval():
+        time_delta = time() - begin
+        sleep(max(0, POLL_INTERVAL - time_delta))
 
     while True:
         begin = time()
 
-        with session.get(endpoint, params=params, headers=headers) as r:
-            response = r.json()
+        api_token = get_api_token()
+        headers = {
+            "Authorization": f"Bearer {api_token}",
+            "User-Agent": USER_AGENT
+        }
+        with session.get(endpoint, params=params, headers=headers) as response:
+            status = response.status_code
+            result = response.json()
 
-        tweets = response['data']
+        if status == 429:
+            logger.warning(f"Warning: Too Many Requests on token: {api_token}")
+            wait_interval()
+            continue
+
+        tweets = result['data']
 
         now = datetime.now()
         def is_recent_tweet(tweet):
@@ -63,8 +124,7 @@ def monitor_tweets(on_eqw_tweet):
         if len(eqw_tweets):
             on_eqw_tweet()
 
-        time_delta = time() - begin
-        sleep(max(0, POLL_INTERVAL - time_delta))
+        wait_interval()
 
 
 # for testing
