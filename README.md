@@ -5,7 +5,7 @@
 ## Required environment variables:
 ```ini
 TWITTER_API_TOKEN=[YOUR_API_TOKEN]
-PASSWORD=[SASMEX_PASSWORD] # The password used to authorize SASMEX notifications
+VERIFICATION_TOKEN=[SASMEX_VERIFICATION_TOKEN] # The token used to authorize SASMEX notifications
 IFTTT_WEBHOOKS=[WEBOOK_URLS] # A list of URLs separated by commas ','
 ```
 

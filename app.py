@@ -15,7 +15,7 @@ def parse_bool(string: str):
 
 
 TEST_MODE = parse_bool(os.environ.get('TEST_MODE', 'False'))
-PASSWORD = os.environ.get('PASSWORD')
+VERIFICATION_TOKEN = os.environ.get('VERIFICATION_TOKEN')
 IFTTT_WEBHOOKS = os.environ.get('IFTTT_WEBHOOKS', '')
 
 IFTTT_WEBHOOKS = [webhoook.strip() for webhoook in IFTTT_WEBHOOKS.split(",")]
@@ -25,11 +25,10 @@ def create_app():
     app = Flask(__name__)
     threadPool = ThreadPoolExecutor(4)
 
-    @app.route("/notify", methods=['POST'])
-    @app.route("/notify/", methods=['POST'])
+    @app.route("/notify/sassla", methods=['POST'])
     def notify():
         authorization = request.headers.get('Authorization')
-        if authorization != f'key={PASSWORD}':
+        if authorization != f'key={VERIFICATION_TOKEN}':
             abort(401)
         body: dict = request.get_json(silent=True)
         if body is None:
