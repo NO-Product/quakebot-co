@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import re
@@ -12,6 +13,7 @@ POLL_INTERVAL = 1
 TWITTER_MONITOR_USERS = os.environ["TWITTER_MONITOR_USERS"]
 TWITTER_API_TOKEN = os.environ["TWITTER_API_TOKEN"]
 TWITTER_TOKEN_RATE_LIMIT = int(os.environ["TWITTER_TOKEN_RATE_LIMIT"])
+TWITTER_TEXT_QUERY = json.loads(os.environ['TWITTER_TEXT_QUERY'])
 USER_AGENT = "v2TweetLookupPython"
 
 logger = logging.getLogger(__name__)
@@ -21,6 +23,30 @@ twitter_api_token_index = -1
 twitter_api_tokens = list(map(lambda x: x.strip(), TWITTER_API_TOKEN.split(",")))
 twitter_api_calls_since = None
 twitter_api_calls = None
+
+
+def query_tweet_text_for_alert(tweet_text, query: dict):
+    key, value = next(iter(query.items()))
+    if key.upper() == "OR":
+        for item in value:
+            if isinstance(item, dict):
+                if query_tweet_text_for_alert(tweet_text=tweet_text, query=item):
+                    return True
+            else:
+                if item in tweet_text:
+                    return True
+        return False
+    elif key.upper() == "AND":
+        for item in value:
+            if isinstance(item, dict):
+                if not query_tweet_text_for_alert(tweet_text=tweet_text, query=item):
+                    return False
+            else:
+                if item not in tweet_text:
+                    return False
+        return True
+    elif key.upper() == "REGEX":
+        return re.search(value, tweet_text)
 
 
 def get_api_token():
@@ -126,16 +152,7 @@ def _monitor_tweets(twitter_user_id, on_eqw_tweet):
         # tweets = [test_tweet]
 
         def is_eqw_tweet(tweet):
-            text = tweet['text']
-            return (
-                (
-                    ("CDMX: 🟡 MODERADO" in text or "CDMX: 🔴 FUERTE" in text)
-                    or re.search("CDMX: (?:🟡|🔴) \d+ seg.", text)
-                )
-                and (
-                    "#Sismo en progreso" in text or "#SASSLA" in text
-                )
-            )
+            return query_tweet_text_for_alert(tweet['text'], TWITTER_TEXT_QUERY)
 
         eqw_tweets = list(filter(is_eqw_tweet, tweets))
 
