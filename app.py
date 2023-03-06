@@ -16,9 +16,9 @@ def parse_bool(string: str):
 
 TEST_MODE = parse_bool(os.environ.get('TEST_MODE', 'False'))
 VERIFICATION_TOKEN = os.environ.get('VERIFICATION_TOKEN')
-IFTTT_WEBHOOKS = os.environ.get('IFTTT_WEBHOOKS', '')
+ALERT_WEBHOOKS = os.environ.get('ALERT_WEBHOOKS', '')
 
-IFTTT_WEBHOOKS = [webhoook.strip() for webhoook in IFTTT_WEBHOOKS.split(",")]
+ALERT_WEBHOOKS = [webhoook.strip() for webhoook in ALERT_WEBHOOKS.split(",")]
 
 
 def create_app():
@@ -76,7 +76,7 @@ def create_app():
             with requests.post(webhook, json=payload) as response:
                 print(f"Notification sent to '{webhook}' with status code: {response.status_code}")
 
-        results = threadPool.map(send_webhook, IFTTT_WEBHOOKS)
+        results = threadPool.map(send_webhook, ALERT_WEBHOOKS)
 
 
     twitter_monitor_thread = Thread(
