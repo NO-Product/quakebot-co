@@ -55,6 +55,26 @@ Here's an example of the payload sent with each webhook notification QuakeBot se
 ```
 
 
+### To send test notification:
+
+```
+curl -X POST {domain}/notify/sassla \
+-H "Authorization: key={VERIFICATION_TOKEN}" \
+-H "Content-Type: application/json" \
+-d '{
+    "source": "XDIF/005",
+    "message": {
+        "code": "EQW",
+        "timestamp": 1663589940,
+        "date": "2022-09-19T12:19:00"
+    }
+}'
+```
+- replace `{domain}` with your domain
+- replace `{VERIFICATION_TOKEN}` with your verification token
+- `code` in the request body can be `EQW` or `RWT`
+
+
 ------------------------------------------------------------------------------------------
 
 
